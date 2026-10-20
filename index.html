@@ -1,0 +1,977 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>BlockNet</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=VT323&display=swap">
+<style>
+/* Concepto: pantalla de juego de bloques. Terminal grande a la izquierda; a la derecha misión, red y experiencia estilo inventario; hotbar de comandos aprendidos bajo la terminal. Un solo mundo oscuro, elegido a propósito. */
+:root{
+  --bg:#12140f;
+  --panel:#2c2e28;
+  --panel-hi:#4b4e43;
+  --panel-lo:#0d0e0b;
+  --screen:#0a0c08;
+  --ink:#dfe3d3;
+  --dim:#8d9382;
+  --grass:#72d43f;
+  --dia:#4eeadb;
+  --gold:#f7c948;
+  --red:#ee4b3c;
+  --lapis:#6c8cff;
+  --f-d:'Press Start 2P','Courier New',monospace;
+  --f-t:'VT323','Courier New',monospace;
+  color-scheme: dark;
+}
+*{box-sizing:border-box}
+html,body{height:auto}
+body{
+  background:var(--bg);
+  color:var(--ink);
+  font-family:var(--f-t);
+  font-size:20px;
+  line-height:1.25;
+  padding-block:16px;
+  padding-left:max(16px,env(safe-area-inset-left,0px));
+  padding-right:max(16px,env(safe-area-inset-right,0px));
+  background-image:
+    linear-gradient(45deg,#171a13 25%,transparent 25%,transparent 75%,#171a13 75%),
+    linear-gradient(45deg,#171a13 25%,transparent 25%,transparent 75%,#171a13 75%);
+  background-size:32px 32px;
+  background-position:0 0,16px 16px;
+}
+.wrap{max-width:1180px;margin:0 auto;display:flex;flex-direction:column;gap:16px}
+.blk{
+  background:var(--panel);
+  border:4px solid var(--panel-lo);
+  box-shadow:inset 4px 4px 0 var(--panel-hi),inset -4px -4px 0 #00000070;
+  padding:14px;
+  min-width:0;
+}
+h1,h2,h3{font-family:var(--f-d);font-weight:400;margin:0;text-wrap:balance}
+header.top{display:flex;flex-wrap:wrap;gap:12px 24px;align-items:center;justify-content:space-between}
+.logo{display:flex;align-items:center;gap:12px}
+.logo svg{width:40px;height:40px;flex:none}
+.logo h1{font-size:20px;letter-spacing:2px;color:var(--grass);text-shadow:3px 3px 0 #000}
+.logo small{display:block;font-family:var(--f-t);font-size:18px;color:var(--dim);letter-spacing:1px}
+.stats{display:flex;flex-wrap:wrap;gap:8px 20px;font-size:20px}
+.stats b{font-family:var(--f-d);font-weight:400;font-size:11px;color:var(--gold);display:block;letter-spacing:1px;margin-bottom:2px}
+.app{display:grid;grid-template-columns:minmax(0,1fr) 330px;gap:16px;align-items:start}
+@media(max-width:920px){.app{grid-template-columns:minmax(0,1fr)}}
+.left{display:flex;flex-direction:column;gap:16px;min-width:0}
+.right{display:flex;flex-direction:column;gap:16px;min-width:0}
+.term{padding:0;display:flex;flex-direction:column}
+.term-bar{display:flex;justify-content:space-between;gap:8px;padding:8px 12px;font-family:var(--f-d);font-size:10px;color:var(--dim);border-bottom:4px solid var(--panel-lo)}
+#screen{
+  background:var(--screen);
+  height:min(64vh,560px);
+  min-height:380px;
+  overflow-y:auto;
+  padding:12px 14px;
+  font-size:21px;
+  line-height:1.2;
+  cursor:text;
+  word-break:break-word;
+  overflow-wrap:anywhere;
+}
+#screen .l{white-space:pre-wrap;color:var(--ink)}
+#screen .ok{color:var(--grass)}
+#screen .err{color:var(--red)}
+#screen .warn{color:var(--gold)}
+#screen .dim{color:var(--dim)}
+#screen .msg{color:var(--dia);margin-top:6px}
+#screen .echo{color:var(--ink)}
+#screen .d{color:var(--lapis)}
+#screen .banner{margin:10px 0;padding:8px 10px;border:4px solid var(--gold);color:var(--gold);font-family:var(--f-d);font-size:11px;line-height:1.7;white-space:pre-wrap}
+#screen .banner.bad{border-color:var(--red);color:var(--red)}
+.prompt{display:flex;gap:8px;align-items:center;padding:8px 14px;background:var(--screen);border-top:4px solid var(--panel-lo)}
+#ps1{color:var(--grass);white-space:nowrap;max-width:60%;overflow:hidden;text-overflow:ellipsis}
+#cmd{flex:1;min-width:0;background:transparent;border:0;outline:0;color:var(--ink);font:inherit;font-size:22px;caret-color:var(--gold)}
+.prompt:focus-within{box-shadow:inset 0 0 0 3px var(--grass)}
+.hotbar{display:grid;grid-template-columns:repeat(auto-fill,minmax(58px,1fr));gap:6px}
+.slot{
+  height:46px;display:flex;align-items:center;justify-content:center;
+  background:#1b1c18;border:3px solid #0d0e0b;
+  box-shadow:inset 3px 3px 0 #0006,inset -3px -3px 0 #ffffff12;
+  font-family:var(--f-d);font-size:8px;color:#4a4d44;letter-spacing:0;
+}
+.slot.on{color:var(--dia);background:#12302d;border-color:#08201e;box-shadow:inset 3px 3px 0 #ffffff1c,inset -3px -3px 0 #0006}
+h2.t{font-size:10px;color:var(--gold);letter-spacing:1px;margin-bottom:10px;line-height:1.6}
+#mTitle{font-size:12px;color:var(--dia);line-height:1.6;margin-bottom:8px}
+#mText{font-size:20px;color:var(--ink);margin:0 0 10px}
+.goals{list-style:none;margin:0 0 12px;padding:0;display:flex;flex-direction:column;gap:6px}
+.goals li{display:flex;gap:8px;align-items:flex-start;color:var(--ink)}
+.goals li::before{content:"";flex:none;width:14px;height:14px;margin-top:4px;background:#1b1c18;border:3px solid #0d0e0b;box-shadow:0 0 0 2px var(--panel-hi)}
+.goals li.done{color:var(--grass)}
+.goals li.done::before{background:var(--grass)}
+.btn{
+  font-family:var(--f-d);font-size:9px;color:var(--ink);background:var(--panel-hi);
+  border:3px solid var(--panel-lo);padding:8px 10px;cursor:pointer;
+  box-shadow:inset 3px 3px 0 #ffffff25,inset -3px -3px 0 #0006;
+}
+.btn:hover{background:#5d6153}
+.btn:focus-visible{outline:3px solid var(--gold);outline-offset:2px}
+.nodes{display:flex;flex-direction:column;gap:6px}
+.node{display:flex;gap:10px;align-items:center}
+.node i{flex:none;width:16px;height:16px;background:#555;border:3px solid #0d0e0b}
+.node.root i{background:var(--grass)}
+.node.on i{background:var(--gold)}
+.node.lock i{background:var(--red)}
+.node span{flex:1;min-width:0}
+.node em{font-style:normal;color:var(--dim);font-size:18px}
+.bar{height:18px;background:#16170f;border:3px solid #0d0e0b;position:relative;overflow:hidden}
+.bar>div{height:100%;width:0;transition:width .2s linear}
+.bar::after{content:"";position:absolute;inset:0;background:repeating-linear-gradient(90deg,transparent 0 10px,#0007 10px 12px)}
+#xpFill{background:var(--grass)}
+#trFill{background:var(--red)}
+.row{display:flex;justify-content:space-between;gap:8px;margin:0 0 6px;font-size:19px}
+.row b{font-family:var(--f-d);font-weight:400;font-size:9px;color:var(--dim);align-self:center}
+.quick{font-size:18px;color:var(--dim);margin:0}
+.quick code{color:var(--gold);font-family:var(--f-t)}
+@media(prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+
+<div class="wrap">
+  <header class="top blk">
+    <div class="logo">
+      <svg viewBox="0 0 16 16" shape-rendering="crispEdges" aria-hidden="true">
+        <path fill="#72d43f" d="M8 1l7 3.5L8 8 1 4.5z"/>
+        <path fill="#8a5a2b" d="M1 4.5L8 8v7L1 11.5z"/>
+        <path fill="#5e3c1a" d="M15 4.5L8 8v7l7-3.5z"/>
+        <path fill="#4eeadb" d="M3 5.4l1.4.7L3 6.8zM11 8.6l1.4-.7v1.5l-1.4.7z"/>
+      </svg>
+      <div><h1>BLOCKNET</h1><small>aprende Linux hackeando mundos de bloques</small></div>
+    </div>
+    <div class="stats">
+      <div><b>RANGO</b><span id="rank">Aldeano</span></div>
+      <div><b>XP</b><span id="xpNum">0</span></div>
+      <div><b>TIEMPO</b><span id="clock">00:00</span></div>
+    </div>
+  </header>
+
+  <div class="app">
+    <div class="left">
+      <section class="blk term" aria-label="Terminal">
+        <div class="term-bar"><span id="barHost">TERMINAL</span><span>TAB completa · ↑↓ historial</span></div>
+        <div id="screen" role="log" aria-live="polite"></div>
+        <form class="prompt" id="form" autocomplete="off">
+          <span id="ps1">jugador@casa:~$</span>
+          <input id="cmd" type="text" spellcheck="false" autocapitalize="off" autocorrect="off" autocomplete="off" aria-label="Línea de comandos">
+        </form>
+      </section>
+      <section class="blk" aria-label="Comandos aprendidos">
+        <h2 class="t">HOTBAR · COMANDOS DOMINADOS</h2>
+        <div class="hotbar" id="hotbar"></div>
+      </section>
+    </div>
+
+    <aside class="right">
+      <section class="blk">
+        <h2 class="t" id="mHead">MISIÓN</h2>
+        <h3 id="mTitle"></h3>
+        <p id="mText"></p>
+        <ul class="goals" id="goals"></ul>
+        <button class="btn" id="hintBtn" type="button">PISTA</button>
+      </section>
+      <section class="blk">
+        <h2 class="t">EXPERIENCIA</h2>
+        <div class="bar"><div id="xpFill"></div></div>
+        <p class="quick" style="margin-top:8px" id="xpNote"></p>
+      </section>
+      <section class="blk">
+        <h2 class="t">RED</h2>
+        <div class="nodes" id="nodes"></div>
+      </section>
+      <section class="blk">
+        <h2 class="t">TRAZA</h2>
+        <div class="bar"><div id="trFill"></div></div>
+        <p class="quick" style="margin-top:8px" id="trNote">Sin rastreo activo.</p>
+      </section>
+      <p class="quick">Atajos: <code>help</code> lista comandos, <code>man ls</code> explica uno, <code>pista</code> ayuda con la misión.</p>
+    </aside>
+  </div>
+</div>
+<script>
+(function(){
+'use strict';
+const $=s=>document.querySelector(s);
+const esc=s=>String(s).replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
+const p2=n=>String(n).padStart(2,'0');
+function rng(seed){return function(){seed|=0;seed=seed+0x6D2B79F5|0;let t=Math.imul(seed^seed>>>15,1|seed);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
+
+/* ---------- Sistema de archivos ---------- */
+function mkfs(map){
+  const root={t:'d',c:{},m:'755'};
+  for(const k in map){
+    let v=map[k],mode=null;
+    if(Array.isArray(v)){mode=v[1];v=v[0]}
+    const parts=k.split('/').filter(Boolean),isDir=k.endsWith('/');
+    let cur=root;
+    parts.forEach((p,i)=>{
+      const last=i===parts.length-1;
+      if(last&&!isDir){cur.c[p]={t:'f',x:v,m:mode||'644'}}
+      else{
+        if(!cur.c[p])cur.c[p]={t:'d',c:{},m:'755'};
+        cur=cur.c[p];
+        if(last&&mode)cur.m=mode;
+      }
+    });
+  }
+  return root;
+}
+
+/* ---------- Registros generados ---------- */
+function genAldea(){
+  const r=rng(7),users=['steve','alex','aldeano_3','herrero','bibliotecario'];
+  const acts=['login','logout','lee archivo','guarda partida','compra pan'];
+  const L=[];
+  for(let i=0;i<48;i++){
+    L.push(`2026-10-19 ${p2(8+Math.floor(i/8))}:${p2((i*7)%60)}:${p2((i*13)%60)} [INFO] usuario=${users[Math.floor(r()*users.length)]} accion=${acts[Math.floor(r()*acts.length)]}`);
+  }
+  L.splice(18,0,'2026-10-19 09:58:31 [AVISO] contrasena proxima a caducar usuario=herrero');
+  L.splice(31,0,'2026-10-19 11:47:09 [ALERTA] intento no autorizado usuario=zombi_77 origen=10.0.0.66');
+  L.splice(40,0,'2026-10-19 12:20:44 [AVISO] disco al 81% usuario=sistema');
+  return L.join('\n');
+}
+let ERR_COUNT=0;
+function genAcceso(){
+  const r=rng(11),L=[];ERR_COUNT=0;
+  const rutas=['/cultivo/12','/granero','/riego/3','/cosecha/hoy','/vacas/lista','/trigo/precio'];
+  for(let i=0;i<72;i++){
+    const x=r();let lvl='OK',code=200;
+    if(x<0.2){lvl='ERROR';code=500;ERR_COUNT++}
+    else if(x<0.38){lvl='WARN';code=404}
+    L.push(`2026-10-19 ${p2(6+Math.floor(i/9))}:${p2((i*11)%60)}:${p2((i*17)%60)} [${lvl}] GET ${rutas[Math.floor(r()*rutas.length)]} ${code}`);
+  }
+  return L.join('\n');
+}
+function genVentas(){
+  const prod=['oro','hierro','carbon','diamante','redstone','lapislazuli','esmeralda'];
+  const r=rng(5),L=['producto,cantidad,precio'];
+  for(let i=0;i<24;i++)L.push(`${prod[Math.floor(r()*prod.length)]},${1+Math.floor(r()*64)},${5+Math.floor(r()*90)}`);
+  return L.join('\n');
+}
+
+/* ---------- Equipos ---------- */
+const HOSTS={};
+const ALL_PROCS=(user,extra)=>[
+  {pid:1,user:'root',cmd:'init'},{pid:212,user:'root',cmd:'sshd'},
+  {pid:340,user:'root',cmd:'cron'},{pid:512,user:user,cmd:'bash'}].concat(extra||[]);
+function addHost(o){o.cwd=o.home;o.cracked=new Set();HOSTS[o.id]=o;return o}
+
+function buildWorld(){
+  for(const k in HOSTS)delete HOSTS[k];
+  addHost({id:'casa',ip:'10.0.0.2',user:'jugador',home:'/home/jugador',need:0,trace:0,ports:[],
+    procs:ALL_PROCS('jugador'),
+    root:mkfs({
+      '/home/jugador/leeme.txt':
+`Bienvenido a BlockNet.
+Esta es tu computadora. Aqui todo se maneja con comandos.
+  ls      lista archivos
+  cat     muestra el contenido de un archivo
+  cd      cambia de carpeta
+Explora la carpeta "mundo" cuando estes listo.
+- Alex`,
+      '/home/jugador/mundo/diario.txt':
+`Dia 14. Anote la clave de la aldea para no olvidarla:
+  usuario: invitado
+  contrasena: tiza123
+Tambien guarde algo importante en un archivo oculto aqui mismo.
+Los archivos ocultos empiezan con un punto.`,
+      '/home/jugador/mundo/mapa.txt':'Aldea (aldea-01) al este. Granja (granja-net) al sur. Mina (mina-corp) bajo tierra.',
+      '/home/jugador/mundo/.llave':'CODIGO: CREEPER-42\n(no se lo muestres a nadie)',
+      '/home/jugador/mochila/':''
+    })});
+  addHost({id:'aldea-01',ip:'10.0.0.12',user:'invitado',home:'/home/invitado',need:0,trace:0,
+    guest:{user:'invitado',pw:'tiza123'},ports:[{n:22,svc:'ssh'}],
+    motd:'Aldea Villa Pixel. Solo personal autorizado. Bienvenido, invitado.',
+    procs:ALL_PROCS('invitado'),
+    root:mkfs({
+      '/home/invitado/bienvenida.txt':
+`Hola, visitante.
+El alcalde cree que alguien intento entrar sin permiso.
+El registro esta en /var/log/aldea.log, pero es larguisimo.
+Tip: grep busca texto dentro de un archivo.`,
+      '/var/log/aldea.log':genAldea(),
+      '/var/log/boot.log':'[ok] arrancando aldea\n[ok] red lista'
+    })});
+  addHost({id:'granja-net',ip:'10.0.0.34',user:'root',home:'/root',need:2,trace:150,
+    ports:[{n:22,svc:'ssh'},{n:80,svc:'http'},{n:3306,svc:'mysql'}],
+    motd:'GranjaNet v2. Sistema de riego y cosecha.',
+    procs:ALL_PROCS('root',[{pid:777,user:'root',cmd:'rastreador'}]),
+    root:mkfs({
+      '/root/nota.txt':'Si lees esto, ya eres root en la granja.',
+      '/srv/cosecha/secreto.txt':['CODIGO DEL ALMACEN: TRIGO-9\nAlex: necesito el numero de errores del servidor.','000'],
+      '/srv/cosecha/lista.txt':'trigo, zanahoria, papa, remolacha',
+      '/var/log/acceso.log':genAcceso()
+    })});
+  addHost({id:'mina-corp',ip:'10.0.0.58',user:'root',home:'/root',need:3,trace:120,
+    ports:[{n:21,svc:'ftp'},{n:22,svc:'ssh'},{n:80,svc:'http'},{n:443,svc:'https'}],
+    motd:'MinaCorp S.A. Todo acceso queda registrado.',
+    procs:ALL_PROCS('root',[{pid:913,user:'root',cmd:'rastreador'}]),
+    root:mkfs({
+      '/root/aviso.txt':'Recuerda rotar los logs.',
+      '/srv/mina/ventas.csv':genVentas(),
+      '/srv/mina/inventario.txt':'picos: 12\nantorchas: 340\nvagonetas: 6',
+      '/var/log/auth.log':
+`2026-10-19 15:02:11 login root desde 10.0.0.2 (jugador)
+2026-10-19 15:02:40 lectura /srv/mina/ventas.csv desde 10.0.0.2
+2026-10-19 14:10:03 login admin desde 10.0.0.7`
+    })});
+  addHost({id:'fortaleza',ip:'10.0.0.99',user:'root',home:'/root',need:3,trace:100,
+    ports:[{n:21,svc:'ftp'},{n:22,svc:'ssh'},{n:25,svc:'smtp'},{n:80,svc:'http'},{n:8080,svc:'proxy'}],
+    motd:'FORTALEZA. Nivel de seguridad: NETHERITA.',
+    procs:ALL_PROCS('root',[{pid:1337,user:'root',cmd:'rastreador'}]),
+    root:mkfs({
+      '/root/aviso.txt':'La llave maestra esta en un archivo .key. Cuidado: hay una falsa.',
+      '/etc/ssl/falsa.key':'SENUELO: esta llave es falsa. Sigue buscando.',
+      '/var/lib/.boveda/maestra.key':'LLAVE MAESTRA: DIAMANTE-100',
+      '/opt/readme.txt':'Sistema de la fortaleza.'
+    })});
+}
+
+/* ---------- Misiones ---------- */
+const MISSIONS=[
+{t:'Despierta en el overworld',xp:60,
+ text:'Bienvenido a BlockNet, recluta. Soy Alex. Tu computadora usa Linux: todo se hace escribiendo comandos. Empecemos mirando que hay a tu alrededor.',
+ goals:[
+  {k:'a',t:'Lista los archivos con ls',test:e=>e.c==='ls'},
+  {k:'b',t:'Lee leeme.txt con cat',test:e=>e.c==='cat'&&/leeme\.txt$/.test(e.path)}],
+ hints:['Escribe: ls','Luego escribe: cat leeme.txt']},
+{t:'El mapa del mundo',xp:80,
+ text:'Los archivos viven en carpetas. cd entra a una carpeta, pwd muestra donde estas y cd .. sube un nivel. Entra a la carpeta mundo y lee el diario.',
+ goals:[
+  {k:'a',t:'Entra a la carpeta mundo con cd',test:e=>e.c==='cd'&&/\/mundo$/.test(e.path)},
+  {k:'b',t:'Muestra tu ubicacion con pwd',test:e=>e.c==='pwd'},
+  {k:'c',t:'Lee diario.txt',test:e=>e.c==='cat'&&/diario\.txt$/.test(e.path)}],
+ hints:['cd mundo','pwd','cat diario.txt']},
+{t:'Archivos ocultos',xp:90,
+ text:'Los archivos que empiezan con punto no salen con ls normal. Usa ls -a para verlos. Lee el archivo oculto y responde con el codigo escribiendo: responder CODIGO',
+ ans:v=>v.toUpperCase().includes('CREEPER-42'),
+ goals:[
+  {k:'a',t:'Muestra todo con ls -a',test:e=>e.c==='ls'&&e.f.includes('a')},
+  {k:'b',t:'Lee el archivo oculto .llave',test:e=>e.c==='cat'&&/\.llave$/.test(e.path)},
+  {k:'c',t:'Envia el codigo con responder',test:e=>e.c==='answer'&&e.ok}],
+ hints:['Debes estar en la carpeta mundo. Escribe: ls -a','cat .llave','responder CREEPER-42']},
+{t:'Primer contacto',xp:100,reveal:['aldea-01'],
+ text:'Hora de salir de casa. scan muestra los equipos de la red. Conectate por SSH con: ssh usuario@equipo. La clave esta en el diario. La contrasena no se ve mientras la escribes.',
+ goals:[
+  {k:'a',t:'Descubre equipos con scan',test:e=>e.c==='scan'},
+  {k:'b',t:'Entra a aldea-01 con ssh',test:e=>e.c==='ssh'&&e.host==='aldea-01'}],
+ hints:['scan','ssh invitado@aldea-01 y luego la contrasena del diario (tiza123)']},
+{t:'Buscar agujas con grep',xp:110,
+ text:'El alcalde dice que alguien intento entrar sin permiso. El registro es /var/log/aldea.log y es larguisimo. grep PALABRA archivo muestra solo las lineas que la contienen. Busca ALERTA y responde con el nombre del intruso.',
+ ans:v=>v.toLowerCase().includes('zombi_77'),
+ goals:[
+  {k:'a',t:'Filtra el registro con grep',test:e=>e.c==='grep'},
+  {k:'b',t:'Responde con el nombre de usuario del intruso',test:e=>e.c==='answer'&&e.ok}],
+ hints:['cd /var/log','grep ALERTA aldea.log','El nombre aparece como usuario=... Escribe: responder NOMBRE']},
+{t:'Romper puertos',xp:120,reveal:['granja-net'],
+ text:'Los equipos serios no aceptan claves simples. Con probe EQUIPO ves sus puertos; con crack EQUIPO PUERTO rompes uno. Al abrir los suficientes puedes entrar como root. Aparecio granja-net en tu mapa.',
+ goals:[
+  {k:'a',t:'Revisa puertos con probe granja-net',test:e=>e.c==='probe'&&e.host==='granja-net'},
+  {k:'b',t:'Abre 2 puertos con crack',test:e=>e.c==='crack'&&e.host==='granja-net'&&e.n>=e.need},
+  {k:'c',t:'Entra con ssh root@granja-net',test:e=>e.c==='ssh'&&e.host==='granja-net'}],
+ hints:['probe granja-net','crack granja-net 22 y crack granja-net 80','ssh root@granja-net']},
+{t:'Cazador de procesos',xp:130,
+ text:'Cuidado: al entrar empezo un rastreo (mira la barra TRAZA). ps lista los procesos y kill PID mata uno. Elimina el proceso rastreador antes de que llegue al 100%.',
+ goals:[
+  {k:'a',t:'Lista procesos con ps',test:e=>e.c==='ps'},
+  {k:'b',t:'Mata el proceso rastreador con kill',test:e=>e.c==='kill'&&e.name==='rastreador'}],
+ hints:['ps','Busca el PID de rastreador y escribe: kill PID (es 777)']},
+{t:'Permisos',xp:130,
+ text:'La granja guarda un secreto en /srv/cosecha/secreto.txt, pero esta bloqueado. ls -l muestra permisos (r leer, w escribir, x ejecutar). chmod 644 archivo da lectura al duenio. Desbloquealo y leelo.',
+ goals:[
+  {k:'a',t:'Mira permisos con ls -l',test:e=>e.c==='ls'&&e.f.includes('l')},
+  {k:'b',t:'Cambia permisos con chmod',test:e=>e.c==='chmod'},
+  {k:'c',t:'Lee secreto.txt',test:e=>e.c==='cat'&&/secreto\.txt$/.test(e.path)}],
+ hints:['cd /srv/cosecha','ls -l','chmod 644 secreto.txt y luego cat secreto.txt']},
+{t:'Tuberias',xp:150,
+ text:'Alex necesita cuantos errores hay en /var/log/acceso.log. Con | pasas la salida de un comando al siguiente. wc -l cuenta lineas. Cuenta las lineas con ERROR y responde con el numero.',
+ ans:v=>v.trim()===String(ERR_COUNT),
+ goals:[
+  {k:'a',t:'Usa wc -l en una tuberia',test:e=>e.c==='wc'&&e.piped},
+  {k:'b',t:'Responde con el numero de errores',test:e=>e.c==='answer'&&e.ok}],
+ hints:['cd /var/log','grep ERROR acceso.log | wc -l','responder seguido del numero que salio']},
+{t:'La mina de datos',xp:160,reveal:['mina-corp'],
+ text:'Nuevo objetivo: mina-corp. Necesita 3 puertos abiertos. Entra como root, mata su rastreador (120 s) y copia ventas.csv a tu mochila con scp ARCHIVO. El archivo esta en /srv/mina.',
+ goals:[
+  {k:'a',t:'Entra a mina-corp',test:e=>e.c==='ssh'&&e.host==='mina-corp'},
+  {k:'b',t:'Elimina su rastreador',test:e=>e.c==='kill'&&e.name==='rastreador'&&e.h==='mina-corp'},
+  {k:'c',t:'Copia ventas.csv con scp',test:e=>e.c==='scp'&&/ventas\.csv$/.test(e.path)}],
+ hints:['probe mina-corp, luego crack mina-corp con 3 puertos de la lista','ssh root@mina-corp, ps, kill 913','scp /srv/mina/ventas.csv']},
+{t:'Borrar huellas',xp:130,
+ text:'Antes de irte, borra tus huellas: elimina /var/log/auth.log con rm y vuelve a casa con exit.',
+ goals:[
+  {k:'a',t:'Borra auth.log con rm',test:e=>e.c==='rm'&&/auth\.log$/.test(e.path)},
+  {k:'b',t:'Vuelve a casa con exit',test:e=>e.c==='disconnect'}],
+ hints:['rm /var/log/auth.log','exit']},
+{t:'Organiza tu base',xp:140,
+ text:'De vuelta en casa, ordena la evidencia. Crea una carpeta con mkdir ~/mochila/evidencia, mueve ventas.csv ahi con mv ~/mochila/ventas.csv ~/mochila/evidencia/ y escribe un reporte con echo "mision cumplida" > ~/mochila/reporte.txt',
+ goals:[
+  {k:'a',t:'Crea la carpeta evidencia con mkdir',test:e=>e.c==='mkdir'&&/evidencia$/.test(e.path)},
+  {k:'b',t:'Mueve ventas.csv a evidencia con mv',test:e=>e.c==='mv'&&/evidencia/.test(e.to)},
+  {k:'c',t:'Escribe reporte.txt usando >',test:e=>e.c==='write'&&/reporte\.txt$/.test(e.path)&&e.text.trim().length>0}],
+ hints:['El simbolo ~ significa tu carpeta personal. Escribe: mkdir ~/mochila/evidencia','mv ~/mochila/ventas.csv ~/mochila/evidencia/','echo "mision cumplida" > ~/mochila/reporte.txt']},
+{t:'La fortaleza',xp:200,reveal:['fortaleza'],final:true,
+ text:'Ultimo desafio. La fortaleza oculta la llave maestra. Abre sus 3 puertos, entra como root y mata al rastreador (solo 100 s). Busca archivos .key con find / -name "*.key", lee ambos (uno es senuelo) y responde con la llave maestra.',
+ ans:v=>v.toUpperCase().includes('DIAMANTE-100'),
+ goals:[
+  {k:'a',t:'Entra a la fortaleza',test:e=>e.c==='ssh'&&e.host==='fortaleza'},
+  {k:'b',t:'Localiza llaves con find',test:e=>e.c==='find'},
+  {k:'c',t:'Responde con la llave maestra',test:e=>e.c==='answer'&&e.ok}],
+ hints:['probe fortaleza, crack con 3 puertos, ssh root@fortaleza, ps y kill 1337','find / -name "*.key"','cat con la ruta del archivo real y responder CODIGO']}
+];
+window.__BN={HOSTS,MISSIONS,buildWorld,mkfs,rng,esc,p2,$,getErr:()=>ERR_COUNT};
+})();
+(function(){
+'use strict';
+const {HOSTS,MISSIONS:M,buildWorld,esc,p2,$}=window.__BN;
+const LS_KEY='blocknet-v1';
+const SLOTS=['ls','cd','pwd','cat','grep','wc','scan','ssh','probe','crack','ps','kill','chmod','scp','rm','mkdir','mv','echo','find'];
+const RANKS=[[0,'Aldeano'],[150,'Lenador'],[400,'Minero'],[700,'Herrero'],[1000,'Encantador'],[1300,'Netherita']];
+const TOTAL_XP=M.reduce((a,m)=>a+m.xp,0);
+const S={host:null,known:new Set(['casa']),m:0,g:{},hint:0,xp:0,el:0,learned:new Set(),q:[],hist:[],hi:0,await:null,trace:null,finished:false,booting:true};
+
+/* ---------- Salida ---------- */
+const scr=$('#screen'),inp=$('#cmd');
+function line(html,cls){
+  const d=document.createElement('div');d.className='l'+(cls?' '+cls:'');d.innerHTML=html;scr.appendChild(d);
+  while(scr.children.length>700)scr.removeChild(scr.firstChild);
+  scr.scrollTop=scr.scrollHeight;return d;
+}
+function print(t,cls){String(t).split('\n').forEach(l=>line(esc(l)||'&nbsp;',cls))}
+function banner(t,bad){const d=document.createElement('div');d.className='banner'+(bad?' bad':'');d.textContent=t;scr.appendChild(d);scr.scrollTop=scr.scrollHeight}
+
+/* ---------- Sonido ---------- */
+let AC=null;
+function beep(f,d,type,v){try{
+  if(!AC)AC=new (window.AudioContext||window.webkitAudioContext)();
+  const o=AC.createOscillator(),g=AC.createGain();o.type=type||'square';o.frequency.value=f;g.gain.value=v||0.03;
+  o.connect(g);g.connect(AC.destination);o.start();g.gain.exponentialRampToValueAtTime(0.0001,AC.currentTime+d);o.stop(AC.currentTime+d);
+}catch(e){}}
+const sfxOk=()=>{beep(660,.12);setTimeout(()=>beep(880,.15),90)};
+const sfxWin=()=>[523,659,784,1046].forEach((f,i)=>setTimeout(()=>beep(f,.2),i*110));
+const sfxErr=()=>beep(140,.18,'sawtooth',.04);
+
+/* ---------- Rutas ---------- */
+const H=()=>S.host;
+function abs(h,p){
+  if(p==='~'||p.startsWith('~/'))p=h.home+p.slice(1);
+  if(!p.startsWith('/'))p=h.cwd+'/'+p;
+  const out=[];for(const s of p.split('/')){if(!s||s==='.')continue;if(s==='..')out.pop();else out.push(s)}
+  return '/'+out.join('/');
+}
+function node(h,path){let n=h.root;for(const s of path.split('/').filter(Boolean)){if(!n||n.t!=='d')return null;n=n.c[s]}return n||null}
+function parentOf(h,path){const parts=path.split('/').filter(Boolean);const name=parts.pop();return{dir:node(h,'/'+parts.join('/')),name}}
+const can=(n,bit)=>(parseInt(n.m[0],8)&bit)>0;
+function modeStr(n){return (n.t==='d'?'d':'-')+n.m.split('').map(d=>{d=+d;return (d&4?'r':'-')+(d&2?'w':'-')+(d&1?'x':'-')}).join('')}
+const sizeOf=n=>n.t==='d'?4096:(n.x||'').length;
+const E=m=>({isE:true,msg:m});
+function cwdShort(h){return h.cwd===h.home?'~':(h.cwd.startsWith(h.home+'/')?'~'+h.cwd.slice(h.home.length):h.cwd)}
+function updPrompt(){
+  const h=H();$('#ps1').textContent=`${h.user}@${h.id}:${cwdShort(h)}${h.user==='root'?'#':'$'}`;
+  $('#barHost').textContent='TERMINAL · '+h.id.toUpperCase()+' ('+h.ip+')';
+}
+function parseFlags(a){
+  const f=new Set(),r=[];
+  for(const x of a){if(/^-[a-zA-Z]+$/.test(x))x.slice(1).split('').forEach(c=>f.add(c));else r.push(x)}
+  return{f,r};
+}
+function readFile(p,cmd){
+  const h=H(),ap=abs(h,p),n=node(h,ap);
+  if(!n)throw E(`${cmd}: ${p}: No existe el archivo o directorio`);
+  if(n.t==='d')throw E(`${cmd}: ${p}: Es un directorio`);
+  if(!can(n,4))throw E(`${cmd}: ${p}: Permiso denegado`);
+  return{txt:n.x,ap};
+}
+function doWrite(p,text,append){
+  const h=H(),ap=abs(h,p),{dir,name}=parentOf(h,ap);
+  if(!dir||dir.t!=='d')throw E(`${p}: No existe el directorio`);
+  if(!name)throw E('ruta invalida');
+  const ex=dir.c[name];
+  if(ex){
+    if(ex.t==='d')throw E(`${p}: Es un directorio`);
+    if(!can(ex,2))throw E(`${p}: Permiso denegado`);
+    ex.x=append?ex.x+text:text;
+  }else dir.c[name]={t:'f',x:text,m:'644'};
+  emit({c:'write',path:ap,text});
+}
+function hostByName(n){
+  if(!n||!HOSTS[n]||!S.known.has(n))throw E(`equipo desconocido: ${n||''}. Usa scan para ver la red.`);
+  return HOSTS[n];
+}
+function clone(n){return JSON.parse(JSON.stringify(n))}
+function walk(h,start,cb){
+  (function rec(path,n){cb(path,n);if(n.t==='d'&&can(n,4))Object.keys(n.c).sort().forEach(k=>rec((path==='/'?'':path)+'/'+k,n.c[k]))})(start,node(h,start));
+}
+
+/* ---------- Comandos ---------- */
+const MAN={
+ ls:'ls [-l] [-a] [ruta]\nLista archivos. -l muestra permisos y tamano. -a incluye ocultos (los que empiezan con punto).',
+ cd:'cd [ruta]\nCambia de carpeta. cd .. sube un nivel. cd ~ o cd solo vuelve a tu carpeta personal.',
+ pwd:'pwd\nMuestra la ruta de la carpeta actual.',
+ cat:'cat archivo\nMuestra el contenido de un archivo.',
+ head:'head [-n N] archivo\nMuestra las primeras N lineas (10 por defecto).',
+ tail:'tail [-n N] archivo\nMuestra las ultimas N lineas.',
+ grep:'grep [-i] [-c] [-n] [-v] patron archivo\nMuestra las lineas que contienen el patron. -i ignora mayusculas, -c cuenta, -n numera, -v invierte.\nTambien lee de una tuberia: cat x | grep texto',
+ wc:'wc [-l] [-w] [-c] [archivo]\nCuenta lineas, palabras y caracteres. Con tuberia: grep X f | wc -l',
+ echo:'echo texto\nImprime texto. Con > lo guarda en un archivo (reemplaza) y con >> lo agrega al final.',
+ mkdir:'mkdir [-p] carpeta\nCrea una carpeta.',
+ touch:'touch archivo\nCrea un archivo vacio.',
+ cp:'cp [-r] origen destino\nCopia archivos (con -r tambien carpetas).',
+ mv:'mv origen destino\nMueve o renombra archivos y carpetas.',
+ rm:'rm [-r] ruta\nBorra archivos (con -r tambien carpetas). No hay papelera: es definitivo.',
+ chmod:'chmod modo archivo\nCambia permisos. Modo numerico: 644 = dueno lee y escribe, resto lee. 000 = nadie.\nTambien: chmod +r archivo, chmod u+x archivo',
+ find:'find [carpeta] -name "patron"\nBusca archivos por nombre. Usa * como comodin. Ejemplo: find / -name "*.key"',
+ ps:'ps\nLista los procesos del equipo con su PID.',
+ kill:'kill PID\nTermina el proceso con ese numero (PID).',
+ whoami:'whoami\nMuestra tu usuario.',
+ clear:'clear\nLimpia la pantalla.',
+ scan:'scan\nMuestra los equipos de la red que conoces.',
+ probe:'probe equipo\nMuestra los puertos de un equipo y cuantos debes abrir.',
+ crack:'crack equipo puerto\nRompe un puerto. Cuando abres los necesarios puedes entrar con ssh root@equipo.',
+ ssh:'ssh usuario@equipo\nTe conecta a otro equipo. Algunos piden contrasena; otros requieren puertos abiertos.',
+ scp:'scp ruta\nCopia un archivo del equipo remoto a tu carpeta ~/mochila en casa.',
+ exit:'exit\nCierra la conexion remota y vuelve a casa.',
+ responder:'responder texto\nEnvia la respuesta a la pregunta de la mision actual.',
+ pista:'pista\nMuestra una ayuda para la mision actual.'
+};
+const CMD={};
+CMD.help=()=>`Comandos de archivos:  ls cd pwd cat head tail grep wc find
+Editar y organizar:    echo mkdir touch cp mv rm chmod
+Sistema:               ps kill whoami clear man
+Red y hacking:         scan probe crack ssh scp exit
+Juego:                 responder pista reiniciar
+Operadores: | (tuberia)  > (guardar)  >> (agregar)
+Usa "man comando" para ver como se usa uno.`;
+CMD.man=a=>{if(!a[0])throw E('uso: man comando');if(!MAN[a[0]])throw E(`No hay manual para ${a[0]}`);return MAN[a[0]]};
+CMD.whoami=()=>H().user;
+CMD.clear=()=>{scr.innerHTML='';return ''};
+CMD.pwd=()=>{emit({c:'pwd'});return H().cwd};
+CMD.ls=a=>{
+  const h=H(),{f,r}=parseFlags(a),t=r[0]||'.',ap=abs(h,t),n=node(h,ap);
+  if(!n)throw E(`ls: no se puede acceder a '${t}': No existe el archivo o directorio`);
+  let items;
+  if(n.t==='f')items=[[t,n]];
+  else{
+    if(!can(n,4))throw E(`ls: no se puede abrir '${t}': Permiso denegado`);
+    items=Object.keys(n.c).sort().filter(k=>f.has('a')||!k.startsWith('.')).map(k=>[k,n.c[k]]);
+    if(f.has('a'))items.unshift(['.',n],['..',n]);
+  }
+  emit({c:'ls',f:[...f],path:ap});
+  if(f.has('l'))return items.map(([k,v])=>`${modeStr(v)} 1 ${h.user.padEnd(7)} ${String(sizeOf(v)).padStart(5)} oct 19 ${k}${v.t==='d'?'/':''}`).join('\n');
+  return items.map(([k,v])=>k+(v.t==='d'?'/':'')).join('  ');
+};
+CMD.cd=a=>{
+  const h=H(),t=a[0]||'~',ap=abs(h,t),n=node(h,ap);
+  if(!n)throw E(`cd: ${t}: No existe el archivo o directorio`);
+  if(n.t!=='d')throw E(`cd: ${t}: No es un directorio`);
+  if(!can(n,1))throw E(`cd: ${t}: Permiso denegado`);
+  h.cwd=ap;updPrompt();emit({c:'cd',path:ap});return '';
+};
+CMD.cat=(a,input)=>{
+  if(!a.length){if(input!=null)return input;throw E('cat: falta el nombre del archivo')}
+  const out=[];
+  for(const p of a){const {txt,ap}=readFile(p,'cat');out.push(txt);emit({c:'cat',path:ap})}
+  return out.join('\n');
+};
+function lines(s){return s===''?[]:s.split('\n')}
+CMD.head=(a,input)=>{
+  let n=10;const r=[];
+  for(let i=0;i<a.length;i++){if(a[i]==='-n'){n=parseInt(a[++i],10)||10}else r.push(a[i])}
+  const txt=r.length?readFile(r[0],'head').txt:input;if(txt==null)throw E('head: falta archivo');
+  return lines(txt).slice(0,n).join('\n');
+};
+CMD.tail=(a,input)=>{
+  let n=10;const r=[];
+  for(let i=0;i<a.length;i++){if(a[i]==='-n'){n=parseInt(a[++i],10)||10}else r.push(a[i])}
+  const txt=r.length?readFile(r[0],'tail').txt:input;if(txt==null)throw E('tail: falta archivo');
+  return lines(txt).slice(-n).join('\n');
+};
+CMD.grep=(a,input)=>{
+  const {f,r}=parseFlags(a);
+  if(!r.length)throw E('uso: grep [-i] [-c] [-n] [-v] patron [archivo]');
+  let re;try{re=new RegExp(r[0],f.has('i')?'i':'')}catch(e){throw E('grep: patron invalido')}
+  const srcs=r.length>1?r.slice(1).map(p=>({n:p,t:readFile(p,'grep').txt})):[{n:'',t:input}];
+  if(srcs[0].t==null)throw E('grep: falta archivo o entrada');
+  const out=[];let count=0;
+  for(const s of srcs)lines(s.t).forEach((l,i)=>{
+    const hit=re.test(l)!==f.has('v');
+    if(hit){count++;out.push((srcs.length>1?s.n+':':'')+(f.has('n')?(i+1)+':':'')+l)}
+  });
+  emit({c:'grep'});
+  return f.has('c')?String(count):out.join('\n');
+};
+CMD.wc=(a,input)=>{
+  const {f,r}=parseFlags(a);
+  const piped=!r.length;
+  const txt=r.length?readFile(r[0],'wc').txt:input;if(txt==null)throw E('wc: falta archivo o entrada');
+  const l=lines(txt).length,w=txt.split(/\s+/).filter(Boolean).length,c=txt.length;
+  emit({c:'wc',piped});
+  if(f.has('l'))return String(l);if(f.has('w'))return String(w);if(f.has('c'))return String(c);
+  return `${l} ${w} ${c}`;
+};
+CMD.echo=a=>{emit({c:'echo'});return a.join(' ')};
+CMD.mkdir=a=>{
+  const {f,r}=parseFlags(a);if(!r.length)throw E('mkdir: falta el nombre de la carpeta');
+  const h=H();
+  for(const p of r){
+    const ap=abs(h,p),{dir,name}=parentOf(h,ap);
+    if(node(h,ap)){throw E(`mkdir: no se puede crear '${p}': Ya existe`)}
+    if(!dir&&f.has('p')){let cur=h.root;for(const s of ap.split('/').filter(Boolean)){if(!cur.c[s])cur.c[s]={t:'d',c:{},m:'755'};cur=cur.c[s]}}
+    else{if(!dir||dir.t!=='d')throw E(`mkdir: no se puede crear '${p}': No existe el directorio padre`);dir.c[name]={t:'d',c:{},m:'755'}}
+    emit({c:'mkdir',path:ap});
+  }
+  return '';
+};
+CMD.touch=a=>{
+  if(!a.length)throw E('touch: falta el nombre');
+  const h=H();
+  for(const p of a){const ap=abs(h,p),{dir,name}=parentOf(h,ap);if(!dir||dir.t!=='d')throw E(`touch: ${p}: No existe el directorio`);if(!dir.c[name])dir.c[name]={t:'f',x:'',m:'644'}}
+  return '';
+};
+function destFor(h,src,dst){
+  const sp=abs(h,src),dp=abs(h,dst),dn=node(h,dp),base=sp.split('/').pop();
+  if(dn&&dn.t==='d')return dp+'/'+base;
+  return dp;
+}
+CMD.cp=a=>{
+  const {f,r}=parseFlags(a);if(r.length<2)throw E('uso: cp [-r] origen destino');
+  const h=H(),sp=abs(h,r[0]),sn=node(h,sp);
+  if(!sn)throw E(`cp: no existe '${r[0]}'`);
+  if(sn.t==='d'&&!f.has('r'))throw E(`cp: ${r[0]} es una carpeta (usa -r)`);
+  if(sn.t==='f'&&!can(sn,4))throw E(`cp: ${r[0]}: Permiso denegado`);
+  const tp=destFor(h,r[0],r[1]),{dir,name}=parentOf(h,tp);
+  if(!dir||dir.t!=='d')throw E(`cp: destino invalido '${r[1]}'`);
+  dir.c[name]=clone(sn);emit({c:'cp',to:tp});return '';
+};
+CMD.mv=a=>{
+  if(a.length<2)throw E('uso: mv origen destino');
+  const h=H(),sp=abs(h,a[0]),sn=node(h,sp);
+  if(!sn)throw E(`mv: no existe '${a[0]}'`);
+  const tp=destFor(h,a[0],a[1]),{dir,name}=parentOf(h,tp);
+  if(!dir||dir.t!=='d')throw E(`mv: destino invalido '${a[1]}'`);
+  const sp2=parentOf(h,sp);delete sp2.dir.c[sp2.name];dir.c[name]=sn;
+  emit({c:'mv',to:tp});return '';
+};
+CMD.rm=a=>{
+  const {f,r}=parseFlags(a);if(!r.length)throw E('rm: falta el archivo');
+  const h=H();
+  for(const p of r){
+    const ap=abs(h,p),n=node(h,ap);
+    if(!n){if(f.has('f'))continue;throw E(`rm: no se puede borrar '${p}': No existe`)}
+    if(n.t==='d'&&!f.has('r'))throw E(`rm: no se puede borrar '${p}': Es una carpeta (usa -r)`);
+    if(ap==='/'||ap===h.home)throw E('rm: operacion peligrosa bloqueada');
+    const {dir,name}=parentOf(h,ap);delete dir.c[name];emit({c:'rm',path:ap});
+  }
+  return '';
+};
+CMD.chmod=a=>{
+  if(a.length<2)throw E('uso: chmod modo archivo');
+  const h=H(),mode=a[0],ap=abs(h,a[1]),n=node(h,ap);
+  if(!n)throw E(`chmod: no existe '${a[1]}'`);
+  let d=n.m.split('').map(Number);
+  if(/^[0-7]{3}$/.test(mode))d=mode.split('').map(Number);
+  else{
+    const m=mode.match(/^([ugoa]*)([+\-=])([rwx]+)$/);
+    if(!m)throw E(`chmod: modo invalido '${mode}'`);
+    const who=m[1]||'a',bits=m[3].split('').reduce((s,c)=>s|({r:4,w:2,x:1}[c]),0);
+    ['u','g','o'].forEach((w,i)=>{if(who.includes('a')||who.includes(w)){
+      if(m[2]==='+')d[i]|=bits;else if(m[2]==='-')d[i]&=~bits;else d[i]=bits}});
+  }
+  n.m=d.join('');emit({c:'chmod',path:ap});return '';
+};
+CMD.find=a=>{
+  const h=H();let start='.',pat=null;
+  for(let i=0;i<a.length;i++){if(a[i]==='-name'){pat=a[++i]}else start=a[i]}
+  if(pat==null)throw E('uso: find [carpeta] -name "patron"');
+  const sp=abs(h,start);if(!node(h,sp))throw E(`find: '${start}': No existe`);
+  const re=new RegExp('^'+pat.replace(/[.+^${}()|[\]\\]/g,'\\$&').replace(/\*/g,'.*').replace(/\?/g,'.')+'$');
+  const out=[];
+  walk(h,sp,(p,n)=>{if(re.test(p.split('/').pop())){out.push(start.startsWith('/')||start==='~'?p:'.'+p.slice(sp.length))}});
+  emit({c:'find'});
+  return out.join('\n');
+};
+CMD.ps=()=>{
+  const h=H();emit({c:'ps'});
+  return 'PID   USUARIO  COMANDO\n'+h.procs.map(p=>String(p.pid).padEnd(5)+' '+p.user.padEnd(8)+' '+p.cmd).join('\n');
+};
+CMD.kill=a=>{
+  const h=H(),pid=parseInt(a[0],10);
+  if(!a.length||isNaN(pid))throw E('uso: kill PID');
+  const i=h.procs.findIndex(p=>p.pid===pid);
+  if(i<0)throw E(`kill: (${pid}) - No existe ese proceso`);
+  const p=h.procs[i];
+  if(['init','sshd','cron','bash'].includes(p.cmd))throw E(`kill: (${pid}) - Operacion no permitida`);
+  h.procs.splice(i,1);h.clean=true;
+  if(S.trace&&S.trace.id===h.id){stopTrace();print('Rastreador eliminado. La traza se detuvo.','ok')}
+  emit({c:'kill',name:p.cmd});return `Proceso ${pid} (${p.cmd}) terminado.`;
+};
+CMD.scan=()=>{
+  emit({c:'scan'});
+  const ks=[...S.known].filter(k=>k!=='casa');
+  let o='Red local 10.0.0.0/24\n';
+  if(!ks.length)o+='(no hay equipos conocidos)';
+  ks.forEach(k=>{const h=HOSTS[k];o+=`  ${k.padEnd(12)} ${h.ip.padEnd(11)} ${h.guest?'acceso con contrasena':'puertos a abrir: '+h.cracked.size+'/'+h.need}\n`});
+  return o.trimEnd();
+};
+CMD.probe=a=>{
+  const t=hostByName(a[0]);
+  let o=`Escaneando ${t.id} (${t.ip})...\nPUERTO  SERVICIO  ESTADO\n`;
+  t.ports.forEach(p=>{o+=`${String(p.n).padEnd(7)} ${p.svc.padEnd(9)} ${t.cracked.has(p.n)?'abierto':'cerrado'}\n`});
+  o+=t.guest?`Este equipo acepta el usuario "${t.guest.user}" con contrasena.`:`Debes abrir ${t.need} puertos. Usa: crack ${t.id} PUERTO`;
+  emit({c:'probe',host:t.id});return o;
+};
+CMD.crack=a=>{
+  if(a.length<2)throw E('uso: crack equipo puerto');
+  const t=hostByName(a[0]),n=parseInt(a[1],10),p=t.ports.find(x=>x.n===n);
+  if(!p)throw E(`crack: el puerto ${a[1]} no existe en ${t.id}`);
+  if(!t.need)throw E(`crack: ${t.id} no necesita puertos abiertos`);
+  if(t.cracked.has(n))return 'Ese puerto ya esta abierto.';
+  t.cracked.add(n);print(`Rompiendo ${n}/${p.svc} ... [########] 100%`,'ok');
+  emit({c:'crack',host:t.id,n:t.cracked.size,need:t.need});
+  return `Puertos abiertos: ${t.cracked.size}/${t.need}`+(t.cracked.size>=t.need?`\nAcceso root disponible: ssh root@${t.id}`:'');
+};
+CMD.ssh=a=>{
+  const arg=a[0];if(!arg)throw E('uso: ssh usuario@equipo');
+  const [user,hn]=arg.includes('@')?arg.split('@'):[null,arg];
+  if(!HOSTS[hn]||!S.known.has(hn)||hn==='casa')throw E(`ssh: no se pudo resolver '${hn}'. Usa scan.`);
+  const t=HOSTS[hn];
+  if(t.guest){
+    if(user!==t.guest.user)throw E(`ssh: usuario incorrecto. Prueba con ${t.guest.user}@${t.id}`);
+    S.await={t,user};inp.type='password';print(`${user}@${t.id}: contrasena requerida`,'warn');return '';
+  }
+  if(user!=='root')throw E('ssh: este equipo solo acepta el usuario root');
+  if(t.cracked.size<t.need)throw E(`ssh: conexion rechazada. Puertos abiertos ${t.cracked.size}/${t.need}. Usa probe y crack.`);
+  connect(t,'root');return '';
+};
+function connect(t,user){
+  S.host=t;t.user=user;t.cwd=t.home;updPrompt();
+  print(`Conectado a ${t.id}. ${t.motd||''}`,'ok');
+  if(t.trace&&!t.clean)startTrace(t);else stopTrace();
+  emit({c:'ssh',host:t.id});
+}
+CMD.exit=CMD.disconnect=()=>{
+  const h=H();if(h.id==='casa')throw E('Ya estas en casa.');
+  emit({c:'disconnect'});goHome();print('Conexion cerrada.','dim');return '';
+};
+function goHome(){S.host=HOSTS.casa;stopTrace();updPrompt()}
+CMD.scp=a=>{
+  const h=H();if(h.id==='casa')throw E('scp: conectate primero a un equipo remoto.');
+  if(!a[0])throw E('uso: scp ruta');
+  const {txt,ap}=readFile(a[0],'scp'),base=ap.split('/').pop();
+  const m=node(HOSTS.casa,'/home/jugador/mochila');m.c[base]={t:'f',x:txt,m:'644'};
+  emit({c:'scp',path:ap});return `${base} copiado a casa:~/mochila (${txt.length} bytes)`;
+};
+CMD.responder=a=>{
+  const m=M[S.m];if(!m||!m.ans)throw E('No hay ninguna pregunta que responder ahora.');
+  const v=a.join(' ');if(!v.trim())throw E('uso: responder TEXTO');
+  if(m.ans(v)){emit({c:'answer',ok:true});return 'Respuesta correcta.'}
+  sfxErr();throw E('Esa no es la respuesta. Revisa los datos otra vez.');
+};
+CMD.pista=()=>{
+  if(S.finished)return 'Ya terminaste el juego.';
+  const hs=M[S.m].hints;const i=Math.min(S.hint,hs.length-1);S.hint++;
+  return `Pista ${i+1}/${hs.length}: ${hs[i]}`;
+};
+CMD.reiniciar=()=>{try{localStorage.removeItem(LS_KEY)}catch(e){}location.reload();return 'Reiniciando...'};
+
+/* ---------- Tuberias y ejecucion ---------- */
+function tokenize(l){
+  const re=/"([^"]*)"|'([^']*)'|>>|>|\||[^\s|>"']+/g,t=[];let m;
+  while((m=re.exec(l))){
+    if(m[1]!==undefined)t.push({v:m[1],q:1});else if(m[2]!==undefined)t.push({v:m[2],q:1});else t.push({v:m[0],q:0});
+  }
+  return t;
+}
+function runLine(text){
+  const toks=tokenize(text);if(!toks.length)return;
+  const segs=[[]];
+  for(const t of toks){if(!t.q&&t.v==='|')segs.push([]);else segs[segs.length-1].push(t)}
+  let prev=null,out='',redir=null;
+  const first=segs[0][0]&&segs[0][0].v;
+  try{
+    for(let i=0;i<segs.length;i++){
+      let seg=segs[i];
+      if(i===segs.length-1){
+        const ri=seg.findIndex(t=>!t.q&&(t.v==='>'||t.v==='>>'));
+        if(ri>=0){redir={app:seg[ri].v==='>>',to:seg[ri+1]&&seg[ri+1].v};if(!redir.to)throw E('sintaxis: falta el archivo despues de >');seg=seg.slice(0,ri)}
+      }
+      const args=seg.map(t=>t.v),cmd=args.shift();
+      if(!cmd)throw E('sintaxis: comando vacio');
+      const fn=CMD[cmd];if(!fn)throw E(`${cmd}: comando no encontrado. Escribe help.`);
+      out=fn(args,prev);if(out==null)out='';prev=out;
+    }
+    if(redir)doWrite(redir.to,out+(out&&!out.endsWith('\n')?'\n':''),redir.app);
+    else if(out!==''){
+      if(segs.length===1&&first==='ls')line(esc(out).replace(/(^|\s)([^\s]+\/)(?=\s|$)/g,'$1<span class="d">$2</span>'));
+      else print(out);
+    }
+  }catch(e){
+    if(e&&e.isE){print(e.msg,'err');sfxErr()}else{console.error(e);print('Error interno: '+e.message,'err')}
+  }
+}
+
+/* ---------- Misiones ---------- */
+function emit(ev){ev.h=H().id;S.q.push(ev)}
+function flush(){
+  const evs=S.q;S.q=[];
+  for(const ev of evs){
+    if(ev.c&&SLOTS.includes(ev.c)&&!S.learned.has(ev.c)){
+      S.learned.add(ev.c);S.xp+=5;print(`+5 XP  Nuevo comando dominado: ${ev.c}`,'warn');renderHot();
+    }
+    if(S.finished)continue;
+    const m=M[S.m];
+    m.goals.forEach(g=>{if(!S.g[g.k]&&g.test(ev)){S.g[g.k]=true;sfxOk();print('[OK] '+g.t,'ok')}});
+  }
+  if(!S.finished){
+    const m=M[S.m];renderMission();
+    if(m.goals.every(g=>S.g[g.k]))completeMission();
+  }
+  renderStats();
+}
+function completeMission(){
+  const m=M[S.m];S.xp+=m.xp;sfxWin();
+  banner(`MISION COMPLETADA\n${m.t}\n+${m.xp} XP`);
+  if(m.final){return finish()}
+  S.m++;save();
+  startMission(700);
+}
+function reveal(m){(m.reveal||[]).forEach(k=>S.known.add(k))}
+function startMission(delay){
+  const m=M[S.m];S.g={};S.hint=0;reveal(m);
+  const say=()=>{print(`\n[Mensaje de Alex] ${m.t.toUpperCase()}`,'msg');print(m.text,'msg')};
+  if(delay)setTimeout(say,delay);else say();
+  renderMission();renderNodes();renderStats();
+}
+function finish(){
+  S.finished=true;save(true);
+  const mins=Math.max(1,Math.round(S.el/60));
+  banner(`JUEGO COMPLETADO\nRANGO FINAL: ${rank()}\nXP: ${S.xp}\nTIEMPO: ${mins} min\nCOMANDOS DOMINADOS: ${S.learned.size}/${SLOTS.length}`);
+  print('Alex: Lo lograste. Ya sabes moverte por Linux, filtrar texto, manejar permisos y procesos. Escribe reiniciar para jugar de nuevo.','msg');
+  renderMission();
+}
+
+/* ---------- Rastreo ---------- */
+function startTrace(t){
+  S.trace={id:t.id,t0:Date.now(),dur:t.trace*1000};
+  print(`ALERTA: rastreo iniciado. Tienes ${t.trace}s para eliminar el proceso 'rastreador' (ps y kill).`,'warn');
+}
+function stopTrace(){S.trace=null;$('#trFill').style.width='0';$('#trNote').textContent='Sin rastreo activo.'}
+function tick(){
+  if(!S.trace||S.finished)return;
+  const e=Date.now()-S.trace.t0,pct=Math.min(1,e/S.trace.dur);
+  $('#trFill').style.width=(pct*100)+'%';
+  $('#trNote').textContent=`${S.trace.id}: ${Math.ceil((S.trace.dur-e)/1000)} s restantes`;
+  if(pct>=1){
+    banner('RASTREO COMPLETO\nTe localizaron y te expulsaron. -20 XP.\nVuelve a entrar y mata al rastreador mas rapido.',true);
+    sfxErr();S.xp=Math.max(0,S.xp-20);goHome();print('Estas de vuelta en casa.','dim');renderStats();
+  }
+}
+
+/* ---------- Interfaz ---------- */
+const rank=()=>{let r=RANKS[0][1];RANKS.forEach(x=>{if(S.xp>=x[0])r=x[1]});return r};
+function renderStats(){
+  $('#rank').textContent=rank();$('#xpNum').textContent=S.xp;
+  const nxt=RANKS.find(x=>x[0]>S.xp);
+  $('#xpFill').style.width=Math.min(100,S.xp/TOTAL_XP*100)+'%';
+  $('#xpNote').textContent=nxt?`Siguiente rango: ${nxt[1]} a ${nxt[0]} XP`:'Rango maximo alcanzado';
+}
+function renderMission(){
+  const m=M[S.m];
+  $('#mHead').textContent=S.finished?'COMPLETADO':`MISION ${S.m+1} DE ${M.length}`;
+  $('#mTitle').textContent=m.t;$('#mText').textContent=m.text;
+  $('#goals').innerHTML=m.goals.map(g=>`<li class="${S.g[g.k]?'done':''}">${esc(g.t)}</li>`).join('');
+}
+function renderHot(){
+  $('#hotbar').innerHTML=SLOTS.map(s=>`<div class="slot ${S.learned.has(s)?'on':''}" title="${s}">${s}</div>`).join('');
+}
+function renderNodes(){
+  const rows=[...S.known].map(k=>{
+    const h=HOSTS[k];let cls='lock',st='bloqueado';
+    if(k==='casa'){cls='root';st='tu equipo'}
+    else if(h.guest){cls='lock';st='contrasena'}
+    else if(h.cracked.size>=h.need){cls='root';st='root listo'}
+    else st=`${h.cracked.size}/${h.need} puertos`;
+    if(H()===h){cls='on';st='conectado'}
+    return `<div class="node ${cls}"><i></i><span>${k}</span><em>${st}</em></div>`;
+  });
+  $('#nodes').innerHTML=rows.join('');
+}
+function save(done){
+  try{localStorage.setItem(LS_KEY,JSON.stringify({m:done?0:S.m,xp:S.xp,el:S.el,l:[...S.learned],done:!!done}))}catch(e){}
+}
+
+/* ---------- Entrada ---------- */
+function completions(v){
+  const sp=v.split(/\s+/);const last=sp[sp.length-1];
+  if(sp.length===1)return{pre:'',list:Object.keys(CMD).filter(c=>c.startsWith(last)&&c!=='disconnect')};
+  const h=H();let dir='.',part=last;
+  const i=last.lastIndexOf('/');
+  if(i>=0){dir=last.slice(0,i+1)||'/';part=last.slice(i+1)}
+  const n=node(h,abs(h,dir));if(!n||n.t!=='d'||!can(n,4))return{pre:'',list:[]};
+  const base=i>=0?last.slice(0,i+1):'';
+  return{pre:base,list:Object.keys(n.c).filter(k=>k.startsWith(part)).map(k=>k+(n.c[k].t==='d'?'/':''))};
+}
+$('#form').addEventListener('submit',e=>{
+  e.preventDefault();if(S.booting)return;
+  const v=inp.value;inp.value='';
+  if(S.await){
+    const a=S.await;S.await=null;inp.type='text';
+    print(`${a.user}@${a.t.id}'s contrasena: ${'*'.repeat(v.length)}`,'dim');
+    if(v===a.t.guest.pw)connect(a.t,a.user);else{print('Permission denied: contrasena incorrecta.','err');sfxErr()}
+    flush();return;
+  }
+  line(`<span class="ok">${esc($('#ps1').textContent)}</span> ${esc(v)}`,'echo');
+  if(v.trim()){S.hist.push(v);S.hi=S.hist.length;runLine(v)}
+  flush();updPrompt();renderNodes();
+});
+inp.addEventListener('keydown',e=>{
+  if(e.key==='ArrowUp'){e.preventDefault();if(S.hi>0){S.hi--;inp.value=S.hist[S.hi]}}
+  else if(e.key==='ArrowDown'){e.preventDefault();if(S.hi<S.hist.length-1){S.hi++;inp.value=S.hist[S.hi]}else{S.hi=S.hist.length;inp.value=''}}
+  else if(e.key==='Tab'){
+    e.preventDefault();if(S.await)return;
+    const v=inp.value,{pre,list}=completions(v);
+    if(!list.length)return;
+    const sp=v.split(/\s+/),last=sp[sp.length-1];
+    let common=list[0];list.forEach(x=>{while(!x.startsWith(common))common=common.slice(0,-1)});
+    if(list.length>1&&common.length<=(last.length-pre.length)){print(list.join('  '),'dim')}
+    sp[sp.length-1]=pre+common+(list.length===1&&!common.endsWith('/')?' ':'');
+    inp.value=sp.join(' ');
+  }
+});
+scr.addEventListener('click',()=>{if(!String(getSelection()))inp.focus()});
+$('#hintBtn').addEventListener('click',()=>{print(CMD.pista(),'warn');inp.focus()});
+setInterval(tick,200);
+setInterval(()=>{
+  if(!document.hidden&&!S.finished&&!S.booting){S.el++;if(S.el%15===0)save()}
+  $('#clock').textContent=p2(Math.floor(S.el/60))+':'+p2(S.el%60);
+},1000);
+
+/* ---------- Arranque ---------- */
+function boot(){
+  buildWorld();S.host=HOSTS.casa;
+  let saved=null;try{saved=JSON.parse(localStorage.getItem(LS_KEY)||'null')}catch(e){}
+  if(saved&&!saved.done&&saved.m>0){
+    S.m=saved.m;S.xp=saved.xp||0;S.el=saved.el||0;(saved.l||[]).forEach(x=>S.learned.add(x));
+    for(let i=0;i<=S.m;i++)reveal(M[i]);
+  }
+  renderHot();updPrompt();renderStats();
+  const msgs=[
+    ['BLOCKNET OS 1.0 (kernel cubico 5.12)','ok'],
+    ['Cargando mundo... [########] 100%','dim'],
+    ['Montando /home/jugador ... ok','dim'],
+    ['Conexion a la red 10.0.0.0/24 ... ok','dim'],
+    [saved&&!saved.done&&saved.m>0?`Partida restaurada. Continuas en la mision ${S.m+1}.`:'Sesion nueva. Escribe help si necesitas ayuda.','warn']
+  ];
+  let i=0;
+  (function next(){
+    if(i<msgs.length){print(msgs[i][0],msgs[i][1]);i++;setTimeout(next,320)}
+    else{S.booting=false;startMission();inp.focus()}
+  })();
+}
+boot();
+window.__BN.S=S;window.__BN.runLine=runLine;window.__BN.flush=flush;window.__BN.CMD=CMD;
+})();
+</script>
+
+</body></html>
